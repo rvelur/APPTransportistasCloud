@@ -1,0 +1,66 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Paso 1: Obtener el código fuente
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      # Paso 2: Conectarse a DockerHub
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Paso 3: Construir la imagen localmente usando tu Dockerfile
+      # Ajuste 1: Cambiamos el nombre del tag de 'my-app:cursos' a 'transportistas-api:latest'
+      - name: Build Docker Image
+        run: |
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest .
+
+      # Paso 4: Subir la imagen empaquetada a DockerHub
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest
+
+      # Paso 5: Registrar la llave .pem para abrir el canal de comunicación
+      - name: Add SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      # Paso 6: Entrar a la instancia EC2 y levantar tu servidor
+      - name: SSH commands to deploy
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.USER_SERVER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          # Autenticarse en DockerHub dentro de la máquina de AWS
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+          
+          # Bajar tu imagen limpia
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest
+          
+          # Limpiar versiones viejas si existieran
+          # Ajuste 2: Cambiamos el nombre del contenedor para que sea acorde a tu app
+          docker stop transportistas-app || true
+          docker rm transportistas-app || true
+          
+          # Encender tu contenedor en el puerto 8080
+          # Ajuste 3: Agregamos el montaje del volumen EFS (-v) que pide estrictamente tu pauta
+          docker run -d \
+            --name transportistas-app \
+            -p 8080:8080 \
+            -v /mnt/efs/temporal:/mnt/efs/temporal \
+            ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest
+          EOF
