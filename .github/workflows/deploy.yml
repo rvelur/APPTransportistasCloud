@@ -12,11 +12,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Paso 1: Obtener el código fuente
+      # Paso 1: Obtener el código fuente de tu repositorio
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      # Paso 2: Conectarse a DockerHub
+      # Paso 2: Conectarse a tu DockerHub
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
@@ -24,43 +24,47 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Paso 3: Construir la imagen localmente usando tu Dockerfile
-      # Ajuste 1: Cambiamos el nombre del tag de 'my-app:cursos' a 'transportistas-api:latest'
       - name: Build Docker Image
         run: |
-          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest .
+          docker build --no-cache -t robvelasquez/transportistas-api:latest .
 
       # Paso 4: Subir la imagen empaquetada a DockerHub
       - name: Push Docker Image
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest
+          docker push robvelasquez/transportistas-api:latest
 
-      # Paso 5: Registrar la llave .pem para abrir el canal de comunicación
+      # Paso 5: Registrar tu llave .pem en el agente de GitHub para abrir la conexión SSH
       - name: Add SSH Key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      # Paso 6: Entrar a la instancia EC2 y levantar tu servidor
+      # Paso 6: Entrar por SSH a tu instancia EC2 de AWS y desplegar la aplicación conectada a Oracle
       - name: SSH commands to deploy
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.USER_SERVER }}@${{ secrets.EC2_HOST }} << 'EOF'
-          # Autenticarse en DockerHub dentro de la máquina de AWS
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
           
-          # Bajar tu imagen limpia
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest
+          # 1. Autenticarse en DockerHub dentro de la máquina de AWS
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u robvelasquez --password-stdin
           
-          # Limpiar versiones viejas si existieran
-          # Ajuste 2: Cambiamos el nombre del contenedor para que sea acorde a tu app
-          docker stop transportistas-app || true
-          docker rm transportistas-app || true
+          # 2. Bajar tu imagen limpia recién generada
+          docker pull robvelasquez/transportistas-api:latest
           
-          # Encender tu contenedor en el puerto 8080
-          # Ajuste 3: Agregamos el montaje del volumen EFS (-v) que pide estrictamente tu pauta
+          # 3. Detener y limpiar versiones anteriores del contenedor de la API si existieran
+          docker stop transportistas-api || true
+          docker rm transportistas-api || true
+          
+          # 4. Encender tu contenedor compartiendo la red local de la EC2 (--network="host")
+          # Esto le permite ver al contenedor de Oracle en localhost:1521 sin problemas de conexión
           docker run -d \
-            --name transportistas-app \
-            -p 8080:8080 \
-            -v /mnt/efs/temporal:/mnt/efs/temporal \
-            ${{ secrets.DOCKERHUB_USERNAME }}/transportistas-api:latest
+            --name transportistas-api \
+            --network="host" \
+            -v /mnt/efs:/mnt/efs/temporal \
+            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_LAB_ACCESS_KEY }} \
+            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_LAB_SECRET_KEY }} \
+            -e AWS_SESSION_TOKEN=${{ secrets.AWS_LAB_SESSION_TOKEN }} \
+            -e AWS_REGION=us-east-1 \
+            robvelasquez/transportistas-api:latest
+            
           EOF
