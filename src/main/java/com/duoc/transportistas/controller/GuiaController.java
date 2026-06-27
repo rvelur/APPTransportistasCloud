@@ -102,6 +102,8 @@ public class GuiaController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    
+
     // 5. Eliminar guías específicas (Registro y archivo en EFS)
     @DeleteMapping("/{id}")
     public ResponseEntity<String> eliminarGuia(@PathVariable Long id) {
