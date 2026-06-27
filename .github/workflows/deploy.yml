@@ -61,9 +61,9 @@ jobs:
             --name transportistas-api \
             --network="host" \
             -v /mnt/efs:/mnt/efs/temporal \
-            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_LAB_ACCESS_KEY }} \
-            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_LAB_SECRET_KEY }} \
-            -e AWS_SESSION_TOKEN=${{ secrets.AWS_LAB_SESSION_TOKEN }} \
+            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY }} \
+            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+            -e AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }} \
             -e AWS_REGION=us-east-1 \
             robvelasquez/transportistas-api:latest
             
