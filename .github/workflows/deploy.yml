@@ -58,12 +58,12 @@ jobs:
 
       # Paso 6: Entrar por SSH a tu instancia EC2 de AWS y desplegar la aplicación conectada a Oracle
       - name: SSH commands to deploy
-        env:
-          KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
-          SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@${{ secrets.EC2_HOST }} _KEY_ID="$KEY_ID" _SECRET="$SECRET_KEY" _TOKEN="$SESSION_TOKEN" 'bash -s' << 'EOF'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@${{ secrets.EC2_HOST }} \
+            AWS_ID="${{ secrets.AWS_ACCESS_KEY }}" \
+            AWS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            AWS_TOK="${{ secrets.AWS_SESSION_TOKEN }}" \
+            'bash -s' << 'EOF'
           
           # 1. Autenticarse en DockerHub dentro de la máquina de AWS
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u robvelasquez --password-stdin
@@ -75,14 +75,14 @@ jobs:
           docker stop transportistas-api || true
           docker rm transportistas-api || true
           
-          # 4. Encender tu contenedor inyectando los tokens de seguridad corregidos
+          # 4. Encender tu contenedor inyectando los tokens evaluados de forma segura
           docker run -d \
             --name transportistas-api \
             --network="host" \
             -v /mnt/efs:/mnt/efs/temporal \
-            -e AWS_ACCESS_KEY_ID="$_KEY_ID" \
-            -e AWS_SECRET_ACCESS_KEY="$_SECRET" \
-            -e AWS_SESSION_TOKEN="$_TOKEN" \
+            -e AWS_ACCESS_KEY_ID="$AWS_ID" \
+            -e AWS_SECRET_ACCESS_KEY="$AWS_KEY" \
+            -e AWS_SESSION_TOKEN="$AWS_TOK" \
             -e AWS_REGION=us-east-1 \
             robvelasquez/transportistas-api:latest
             
