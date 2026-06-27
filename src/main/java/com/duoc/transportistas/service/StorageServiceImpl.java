@@ -16,7 +16,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 public class StorageServiceImpl implements StorageService {
 
     private final String EFS_BASE_PATH = "/mnt/efs/temporal";
-    private final String BUCKET_NAME = "mi-bucket-transportistas-duoc"; // Reemplazar por su bucket real en AWS
+    private final String BUCKET_NAME = "cloud-storage-bucket-duoc"; 
 
     @Override
     public String guardarTemporalEfs(String numeroGuia, byte[] contenidoPdf) {
