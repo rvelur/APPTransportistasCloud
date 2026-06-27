@@ -95,6 +95,8 @@ public class GuiaController {
                 .map(guia -> {
                     guia.setTransportista(datosActualizados.getTransportista());
                     guia.setNumeroGuia(datosActualizados.getNumeroGuia());
+                    guia.setFechaEmision(datosActualizados.getFechaEmision());
+                    guia.setEstado(datosActualizados.getEstado());
                     return ResponseEntity.ok(guiaRepository.save(guia));
                 })
                 .orElse(ResponseEntity.notFound().build());
