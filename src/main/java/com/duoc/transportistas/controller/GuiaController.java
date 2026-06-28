@@ -35,6 +35,8 @@ public class GuiaController {
     // 1. Crear guías de despacho (y guardarla en EFS de verdad)
     @PostMapping
     public ResponseEntity<GuiaDespacho> crearGuia(@RequestBody GuiaDespacho guia) {
+        System.out.println(">>> [CI/CD OK] Procesando la creación de una nueva guía de despacho en Duoc UC...");
+        
         guia.setEstado("GENERADA");
         guia.setFechaEmision(LocalDate.now());
         
