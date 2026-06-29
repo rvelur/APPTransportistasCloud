@@ -26,11 +26,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/guias/{id}/descargar").hasRole("DESCARGADOR")
                 
                 // 2. Rol Admin Transporte: Puede hacer todo el resto de las operaciones
-                .requestMatchers(HttpMethod.POST, "/api/guias", "/api/guias/**").hasRole("ADMIN_TRANSPORTE")
-                .requestMatchers(HttpMethod.PUT, "/api/guias/**").hasRole("ADMIN_TRANSPORTE")
-                .requestMatchers(HttpMethod.DELETE, "/api/guias/**").hasRole("ADMIN_TRANSPORTE")
-                .requestMatchers(HttpMethod.GET, "/api/guias/buscar").hasRole("ADMIN_TRANSPORTE")
-                .requestMatchers(HttpMethod.GET, "/api/guias").hasRole("ADMIN_TRANSPORTE")
+                .requestMatchers(HttpMethod.POST, "/api/guias", "/api/guias/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/guias/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/guias/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/guias/buscar").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/guias").hasRole("ADMIN")
                 
                 // Cualquier otra ruta requiere estar autenticado
                 .anyRequest().authenticated()
