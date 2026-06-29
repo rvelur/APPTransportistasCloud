@@ -1,17 +1,17 @@
 package com.duoc.transportistas.config;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
+import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
@@ -45,9 +45,9 @@ public class SecurityConfig {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             // Azure AD B2C suele mandar los roles en un claim llamado "roles" o "extension_roles"
-            List<String> roles = jwt.getClaimAsStringList("roles");
+            List<String> roles = jwt.getClaimAsStringList("role");
             if (roles == null) {
-                roles = jwt.getClaimAsStringList("extension_roles");
+                roles = jwt.getClaimAsStringList("extension_role");
             }
             if (roles == null) return Collections.emptyList();
             
