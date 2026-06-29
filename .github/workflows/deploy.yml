@@ -33,6 +33,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       # Paso 2: Conectarse a tu DockerHub
+      # ========================================================
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
@@ -40,50 +41,40 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Paso 3: Construir la imagen localmente usando tu Dockerfile
+      # ========================================================
       - name: Build Docker Image
         run: |
           docker build --no-cache -t robvelasquez/transportistas-api:latest .
 
       # Paso 4: Subir la imagen empaquetada a DockerHub
+      # ========================================================
       - name: Push Docker Image
         run: |
           docker push robvelasquez/transportistas-api:latest
 
-      # Paso 5: Registrar tu llave .pem en el agente de GitHub para abrir la conexión SSH
-      - name: Add SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-      # Paso 6: Entrar por SSH a tu instancia EC2 de AWS y desplegar la aplicación conectada a Oracle
-      - name: SSH commands to deploy
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ec2-user@${{ secrets.EC2_HOST }} \
-            AWS_ID="${{ secrets.AWS_ACCESS_KEY }}" \
-            AWS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            AWS_TOK="${{ secrets.AWS_SESSION_TOKEN }}" \
-            'bash -s' << 'EOF'
-          
-          # 1. Autenticarse en DockerHub dentro de la máquina de AWS
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u robvelasquez --password-stdin
-          
-          # 2. Bajar tu imagen limpia recién generada
-          docker pull robvelasquez/transportistas-api:latest
-          
-          # 3. Detener y limpiar versiones anteriores del contenedor de la API si existieran
-          docker stop transportistas-api || true
-          docker rm transportistas-api || true
-          
-          # 4. Encender tu contenedor inyectando los tokens evaluados de forma segura
-          docker run -d \
-            --name transportistas-api \
-            --network="host" \
-            -v /mnt/efs:/mnt/efs/temporal \
-            -e AWS_ACCESS_KEY_ID="$AWS_ID" \
-            -e AWS_SECRET_ACCESS_KEY="$AWS_KEY" \
-            -e AWS_SESSION_TOKEN="$AWS_TOK" \
-            -e AWS_REGION=us-east-1 \
-            robvelasquez/transportistas-api:latest
+      # Paso 5 y 6: Despliegue automático vía SSH directo en la EC2
+      # ========================================================
+      - name: Deploy to AWS EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: 'ec2-user'
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 1. Detener y limpiar versiones anteriores del contenedor de la API si existieran
+            sudo docker stop transportistas-api || true
+            sudo docker rm -f transportistas-api || true
             
-          EOF
+            # 2. Bajar tu imagen limpia recién generada desde DockerHub
+            sudo docker pull robvelasquez/transportistas-api:latest
+            
+            # 3. Encender tu contenedor inyectando los tokens evaluados de forma segura con el volumen corregido
+            sudo docker run -d \
+              --name transportistas-api \
+              --network="host" \
+              -v /mnt/efs:/mnt/efs \
+              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              -e AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }} \
+              -e AWS_REGION=us-east-1 \
+              robvelasquez/transportistas-api:latest
