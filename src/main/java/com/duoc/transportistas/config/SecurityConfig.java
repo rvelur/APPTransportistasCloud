@@ -25,7 +25,7 @@ public class SecurityConfig {
                 // 1. Rol Descargador: Solo puede usar el endpoint de descargar
                 .requestMatchers(HttpMethod.GET, "/api/guias/{id}/descargar").hasRole("DESCARGADOR")
                 
-                // 2. Rol Admin Transporte: Puede hacer todo el resto de las operaciones
+                // 2. Rol Admin: Puede hacer todo el resto de las operaciones
                 .requestMatchers(HttpMethod.POST, "/api/guias", "/api/guias/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/guias/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/guias/**").hasRole("ADMIN")
