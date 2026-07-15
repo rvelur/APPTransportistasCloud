@@ -78,5 +78,11 @@ jobs:
             export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             export AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}
 
-            sudo -E docker compose down
-            sudo -E docker compose up -d
+            # Intentar usar el comando moderno, y si falla, usar el clásico con guion
+            if sudo docker compose version >/dev/null 2>&1; then
+              sudo -E docker compose down
+              sudo -E docker compose up -d
+            else
+              sudo -E docker-compose down
+              sudo -E docker-compose up -d
+            fi
