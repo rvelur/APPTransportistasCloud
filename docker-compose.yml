@@ -27,7 +27,6 @@ services:
       - rabbitmq
     depends_on:
       - rabbitmq1
-    command: rabbitmq-server -detached && rabbitmqctl stop_app && rabbitmqctl reset && rabbitmqctl join_cluster rabbit@rabbitmq1 && rabbitmqctl start_app
     restart: always
 
   oracle:
