@@ -1,12 +1,16 @@
 package com.duoc.transportistas.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "GUIAS_PROCESADAS")
-@Data
+@Getter
+@Setter
+@ToString
 public class GuiaProcesada {
 
     @Id

@@ -54,17 +54,25 @@ public class ConsumidorService {
                 logs.add("Guía N° " + guiaMsg.getNumeroGuia() + " procesada y persistida con éxito en Oracle.");
                 
             } catch (Exception e) {
-                logs.add("ERROR al persistir Guía N° " + guiaMsg.getNumeroGuia() + ": " + e.getMessage() + ". Redirigiendo a cola 2.");
+                String errorMsg = "ERROR al persistir Guía N° " + guiaMsg.getNumeroGuia() + ": " + e.getMessage() + ". Redirigiendo a cola 2.";
+                logs.add(errorMsg);
+                System.err.println("❌ [Consumidor] " + errorMsg);
                 
-                // Enviar a Cola 2 (Errores) a través del Exchange DLX
-                rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.EXCHANGE_DLX, 
-                    RabbitMQConfig.ROUTING_KEY_DLX, 
-                    guiaMsg
-                );
+                try {
+                    // Enviar a Cola 2 (Errores) a través del Exchange DLX
+                    rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.EXCHANGE_DLX, 
+                        RabbitMQConfig.ROUTING_KEY_DLX, 
+                        guiaMsg
+                    );
+                    System.out.println("⚠️ [Consumidor] Guía N° " + guiaMsg.getNumeroGuia() + " reenviada con éxito a la Cola 2.");
+                } catch (Exception ex) {
+                    // Backup definitivo: Si falla el reenvío, el JSON queda impreso en el log de la EC2
+                    System.err.println("🚨 [CRÍTICO] Falló el reenvío a la Cola 2 de la guía N° " + guiaMsg.getNumeroGuia() + ". Datos de respaldo: " + guiaMsg);
+                }
             }
-        }
+        } // <--- Cierra el ciclo "while"
 
         return logs;
-    }
-}
+    } 
+} 

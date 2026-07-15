@@ -25,6 +25,7 @@ import com.duoc.transportistas.model.GuiaDespacho;
 import com.duoc.transportistas.repository.GuiaDespachoRepository;
 import com.duoc.transportistas.service.StorageService;
 import com.duoc.transportistas.service.ConsumidorService;
+import com.duoc.transportistas.service.ProductorService;
 import com.duoc.transportistas.repository.GuiaProcesadaRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,10 @@ public class GuiaController {
     @Autowired
     private GuiaProcesadaRepository guiaProcesadaRepository; // <-- Importante tenerla declarada aquí también
 
+    @Autowired
+    private ProductorService productorService;
+
+    
     // 1. Crear guías de despacho (Modificado: Ahora envía los datos a la Cola 1)
     @PostMapping
     public ResponseEntity<String> crearGuia(@RequestBody GuiaDespacho guia) {
@@ -65,11 +70,8 @@ public class GuiaController {
         
         try {
             // Enviar la GuiaDespacho directamente como JSON a la Cola 1
-            rabbitTemplate.convertAndSend(
-                RabbitMQConfig.EXCHANGE_PRINCIPAL, 
-                RabbitMQConfig.ROUTING_KEY_1, 
-                guia
-            );
+            productorService.enviarGuia(guia);
+            
             return ResponseEntity.status(HttpStatus.ACCEPTED)
                     .body("Guía de despacho N° " + guia.getNumeroGuia() + " enviada a la cola 1 con éxito para procesamiento asíncrono.");
         } catch (Exception e) {
