@@ -18,27 +18,33 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable()) // Deshabilitado para poder usar APIs REST libremente
-            .authorizeHttpRequests(auth -> auth
-                // 1. Rol Descargador: Solo puede usar el endpoint de descargar
-                .requestMatchers(HttpMethod.GET, "/api/guias/{id}/descargar").hasRole("DESCARGADOR")
-                
-                // 2. Rol Admin: Puede hacer todo el resto de las operaciones
-                .requestMatchers(HttpMethod.POST, "/api/guias", "/api/guias/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/guias/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/guias/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/guias/buscar").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/guias").hasRole("ADMIN")
-                
-                // Cualquier otra ruta requiere estar autenticado
-                .anyRequest().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        .csrf(csrf -> csrf.disable()) // Deshabilitado para poder usar APIs REST libremente
+        .authorizeHttpRequests(auth -> auth
+            // 1. Rol Descargador: Solo puede usar el endpoint de descargar
+            .requestMatchers(HttpMethod.GET, "/api/guias/{id}/descargar").hasRole("DESCARGADOR")
             
-        return http.build();
-    }
+            // 2. Rol Admin: Puede hacer todo el resto de las operaciones
+            .requestMatchers(HttpMethod.POST, "/api/guias", "/api/guias/**").permitAll() //hasRole("ADMIN")
+            .requestMatchers(HttpMethod.PUT, "/api/guias/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.DELETE, "/api/guias/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.GET, "/api/guias/buscar").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.GET, "/api/guias").hasRole("ADMIN")
+            
+            // ==========================================
+            // NUEVO ENDPOINT LOCAL DE LA GUÍA DE APRENDIZAJE
+            // Se permite acceso público para pruebas locales con Postman sin token
+            // ==========================================
+            .requestMatchers("/send").permitAll() // <-- Agregado para pruebas locales[cite: 1]
+            .requestMatchers("/actuator/*").permitAll()
+            // Cualquier otra ruta requiere estar autenticado
+            .anyRequest().authenticated()
+        )
+        .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+        
+    return http.build();
+}
 
     // Mapeador para leer los roles (extension_roles o roles) que Azure inyecta en el Token JWT
     private JwtAuthenticationConverter jwtAuthenticationConverter() {

@@ -17,12 +17,12 @@ jobs:
         uses: actions/checkout@v4
 
       # ========================================================
-      # Configurar Java en el agente de GitHub
+      # Configurar Java 21 
       # ========================================================
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: maven
 
@@ -52,7 +52,7 @@ jobs:
         run: |
           docker push robvelasquez/transportistas-api:latest
 
-      # Paso 5 y 6: Despliegue automático vía SSH directo en la EC2
+      # Paso 5 y 6: Despliegue automático vía SSH directo en la EC2 usando Docker Compose
       # ========================================================
       - name: Deploy to AWS EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -61,20 +61,22 @@ jobs:
           username: 'ec2-user'
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Detener y limpiar versiones anteriores del contenedor de la API si existieran
-            sudo docker stop transportistas-api || true
-            sudo docker rm -f transportistas-api || true
-            
-            # 2. Bajar tu imagen limpia recién generada desde DockerHub
+            # 1. Crear el directorio para que el repositorio de tu proyecto exista en la EC2
+            mkdir -p ~/transportistas
+            cd ~/transportistas
+
+            # 2. Descargar la última definición de tu docker-compose.yml desde GitHub
+            # (Reemplaza 'Beto' por tu usuario de GitHub y 'transportistas' por el nombre de tu repositorio real)
+            curl -o docker-compose.yml https://raw.githubusercontent.com/rvelur/APPTransportistasCloud/main/docker-compose.yml
+
+            # 3. Descargar la última imagen del backend de DockerHub
             sudo docker pull robvelasquez/transportistas-api:latest
-            
-            # 3. Encender tu contenedor inyectando los tokens evaluados de forma segura con el volumen corregido
-            sudo docker run -d \
-              --name transportistas-api \
-              --network="host" \
-              -v /mnt/efs:/mnt/efs \
-              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-              -e AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }} \
-              -e AWS_REGION=us-east-1 \
-              robvelasquez/transportistas-api:latest
+
+            # 4. Levantar la infraestructura completa en la EC2 inyectando las credenciales temporales de AWS
+            export DOCKER_IMAGE=robvelasquez/transportistas-api:latest
+            export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            export AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}
+
+            sudo -E docker compose down
+            sudo -E docker compose up -d

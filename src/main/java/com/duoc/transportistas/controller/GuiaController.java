@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,25 +18,40 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import com.duoc.transportistas.config.RabbitMQConfig;
 import com.duoc.transportistas.model.GuiaDespacho;
 import com.duoc.transportistas.repository.GuiaDespachoRepository;
 import com.duoc.transportistas.service.StorageService;
+import com.duoc.transportistas.service.ConsumidorService;
+import com.duoc.transportistas.repository.GuiaProcesadaRepository;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/guias")
-@RequiredArgsConstructor
 public class GuiaController {
 
-    private final GuiaDespachoRepository guiaRepository;
-    private final StorageService storageService; // <--- Inyectamos el nuevo servicio de almacenamiento
+    @Autowired
+    private GuiaDespachoRepository guiaRepository;
 
-    // 1. Crear guías de despacho (y guardarla en EFS de verdad)
+    @Autowired
+    private StorageService storageService;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private ConsumidorService consumidorService;
+
+    @Autowired
+    private GuiaProcesadaRepository guiaProcesadaRepository; // <-- Importante tenerla declarada aquí también
+
+    // 1. Crear guías de despacho (Modificado: Ahora envía los datos a la Cola 1)
     @PostMapping
-    public ResponseEntity<GuiaDespacho> crearGuia(@RequestBody GuiaDespacho guia) {
-        System.out.println(">>> [CI/CD OK] Procesando la creación de una nueva guía de despacho en Duoc UC...");
+    public ResponseEntity<String> crearGuia(@RequestBody GuiaDespacho guia) {
+        System.out.println(">>> [CI/CD OK] Procesando la creación de una nueva guía en local...");
         
         guia.setEstado("GENERADA");
         guia.setFechaEmision(LocalDate.now());
@@ -47,8 +63,27 @@ public class GuiaController {
         String rutaEfs = storageService.guardarTemporalEfs(guia.getNumeroGuia(), pdfFalso);
         guia.setRutaTemporalEfs(rutaEfs);
         
-        GuiaDespacho nuevaGuia = guiaRepository.save(guia);
-        return new ResponseEntity<>(nuevaGuia, HttpStatus.CREATED);
+        try {
+            // Enviar la GuiaDespacho directamente como JSON a la Cola 1
+            rabbitTemplate.convertAndSend(
+                RabbitMQConfig.EXCHANGE_PRINCIPAL, 
+                RabbitMQConfig.ROUTING_KEY_1, 
+                guia
+            );
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body("Guía de despacho N° " + guia.getNumeroGuia() + " enviada a la cola 1 con éxito para procesamiento asíncrono.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al enviar la guía a la cola 1: " + e.getMessage());
+        }
+    }
+
+    // NEW: Endpoint adicional para consumir mensajes de la Cola 1 bajo demanda
+    // Los procesa y los guarda en la base de datos Oracle en la NUEVA TABLA (guias_procesadas)
+    @PostMapping("/consumir")
+    public ResponseEntity<List<String>> consumirYProcesarGuias() {
+        List<String> logsProcesamiento = consumidorService.consumirYProcesarCola1();
+        return ResponseEntity.ok(logsProcesamiento);
     }
 
     // 2. Subir guías generadas a S3 con la estructura exacta de la pauta
@@ -103,8 +138,6 @@ public class GuiaController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-
-    
 
     // 5. Eliminar guías específicas (Registro y archivo en EFS)
     @DeleteMapping("/{id}")

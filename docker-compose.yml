@@ -1,0 +1,63 @@
+version: '3'
+
+services:
+  rabbitmq1:
+    image: rabbitmq:3-management
+    hostname: rabbitmq1
+    container_name: rabbitmq1
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: 'mysecretcookie'
+    networks:
+      - rabbitmq
+    restart: always
+
+  rabbitmq2:
+    image: rabbitmq:3-management
+    hostname: rabbitmq2
+    container_name: rabbitmq2
+    ports:
+      - "15673:15672"
+      - "5673:5672"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: 'mysecretcookie'
+    networks:
+      - rabbitmq
+    depends_on:
+      - rabbitmq1
+    command: rabbitmq-server -detached && rabbitmqctl stop_app && rabbitmqctl reset && rabbitmqctl join_cluster rabbit@rabbitmq1 && rabbitmqctl start_app
+    restart: always
+
+  oracle:
+    image: gvenzl/oracle-xe:11
+    container_name: oracle-local
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PASSWORD=password
+    networks:
+      - rabbitmq
+    restart: always
+
+  transportistas-app:
+    image: ${DOCKER_IMAGE:-transportistas-app:latest}
+    container_name: transportistas-app
+    ports:
+      - "8080:8080"
+    restart: always
+    depends_on:
+      - rabbitmq1
+      - oracle
+    networks:
+      - rabbitmq
+    environment:
+      # Apuntamos a los contenedores usando sus nombres de servicio en la red de Docker
+      - SPRING_DATASOURCE_URL=jdbc:oracle:thin:@oracle:1521:xe
+      - SPRING_RABBITMQ_HOST=rabbitmq1 # Se conecta al nodo principal del clúster
+      - SPRING_RABBITMQ_PORT=5672
+
+networks:
+  rabbitmq:
+    driver: bridge
