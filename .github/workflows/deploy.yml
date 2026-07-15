@@ -61,28 +61,30 @@ jobs:
           username: 'ec2-user'
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Crear el directorio para que el repositorio de tu proyecto exista en la EC2
+            # 1. Crear el directorio para que el proyecto exista en la EC2
             mkdir -p ~/transportistas
             cd ~/transportistas
 
-            # 2. Descargar la última definición de tu docker-compose.yml desde GitHub
-            # (Reemplaza 'Beto' por tu usuario de GitHub y 'transportistas' por el nombre de tu repositorio real)
+            # 2. Asegurar que Docker Compose esté instalado en la EC2
+            if ! command -v docker-compose &> /dev/null && ! sudo docker compose version &> /dev/null; then
+              echo "Docker Compose no encontrado. Instalando..."
+              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+              sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+            fi
+
+            # 3. Descargar la última definición de tu docker-compose.yml desde GitHub
             curl -o docker-compose.yml https://raw.githubusercontent.com/rvelur/APPTransportistasCloud/main/docker-compose.yml
 
-            # 3. Descargar la última imagen del backend de DockerHub
+            # 4. Descargar la última imagen del backend de DockerHub
             sudo docker pull robvelasquez/transportistas-api:latest
 
-            # 4. Levantar la infraestructura completa en la EC2 inyectando las credenciales temporales de AWS
+            # 5. Levantar la infraestructura completa inyectando las credenciales temporales de AWS
             export DOCKER_IMAGE=robvelasquez/transportistas-api:latest
             export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
             export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             export AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}
 
-            # Intentar usar el comando moderno, y si falla, usar el clásico con guion
-            if sudo docker compose version >/dev/null 2>&1; then
-              sudo -E docker compose down
-              sudo -E docker compose up -d
-            else
-              sudo -E docker-compose down
-              sudo -E docker-compose up -d
-            fi
+            # Ejecutar con el comando instalado
+            sudo -E docker-compose down
+            sudo -E docker-compose up -d
