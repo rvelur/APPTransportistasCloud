@@ -58,6 +58,11 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:oracle:thin:@oracle:1521:xe
       - SPRING_RABBITMQ_HOST=rabbitmq1 # Se conecta al nodo principal del clúster
       - SPRING_RABBITMQ_PORT=5672
+      # Variables AWS para la integración con S3
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+      - AWS_REGION=us-east-1
 
 networks:
   rabbitmq:
