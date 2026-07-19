@@ -19,6 +19,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import com.duoc.transportistas.config.RabbitMQConfig;
 import com.duoc.transportistas.model.GuiaDespacho;
@@ -51,6 +58,9 @@ public class GuiaController {
 
     @Autowired
     private ProductorService productorService;
+
+    @Autowired
+    private S3Client s3Client;
 
     // 1. Crear guías de despacho
     @PostMapping
@@ -118,15 +128,43 @@ public class GuiaController {
 
     // 3. Descargar guías con validación de permisos
     @GetMapping("/{id}/descargar")
-    public ResponseEntity<String> descargarGuia(@PathVariable Long id, @RequestHeader("Authorization") String token) {
+    public ResponseEntity<?> descargarGuia(@PathVariable Long id, @RequestHeader("Authorization") String token) {
         if (token == null || !token.startsWith("Bearer ")) {
             return new ResponseEntity<>("Acceso denegado: Token inválido o ausente", HttpStatus.FORBIDDEN);
         }
 
         Optional<GuiaDespacho> guiaOpt = guiaRepository.findById(id);
         if (guiaOpt.isPresent()) {
-            return ResponseEntity.ok("Descargando archivo físico desde la ruta del volumen EFS: " + guiaOpt.get().getRutaTemporalEfs());
+            GuiaDespacho guia = guiaOpt.get();
+            try {
+                
+                String bucketName = "cloud-storage-bucket-duoc";
+
+            
+                String s3Key = "2026/" + guia.getTransportista() + "/guia_" + guia.getNumeroGuia() + ".pdf";
+
+                // Solicitamos los bytes del archivo a AWS S3 usando el SDK v2
+                GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(s3Key)
+                        .build();
+
+                ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+                byte[] data = objectBytes.asByteArray();
+                ByteArrayResource resource = new ByteArrayResource(data);
+
+                // Retornamos el archivo binario con formato PDF y forzamos la descarga
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_PDF)
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"guia_" + guia.getNumeroGuia() + ".pdf\"")
+                        .body(resource);
+
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("Error al obtener el archivo desde AWS S3: " + e.getMessage());
+            }
         }
+
         return ResponseEntity.notFound().build();
     }
 
