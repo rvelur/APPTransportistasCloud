@@ -46,6 +46,8 @@ services:
     ports:
       - "8080:8080"
     restart: always
+    volumes:
+      - /mnt/efs/temporal/:/mnt/efs/temporal
     depends_on:
       - rabbitmq1
       - oracle

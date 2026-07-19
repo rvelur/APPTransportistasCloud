@@ -44,13 +44,13 @@ jobs:
       # ========================================================
       - name: Build Docker Image
         run: |
-          docker build --no-cache -t robvelasquez/transportistas-api:latest .
+          docker build --no-cache -t robvelasquez/transportistas-app:latest .
 
       # Paso 4: Subir la imagen empaquetada a DockerHub
       # ========================================================
       - name: Push Docker Image
         run: |
-          docker push robvelasquez/transportistas-api:latest
+          docker push robvelasquez/transportistas-app:latest
 
       # Paso 5 y 6: Despliegue automático vía SSH directo en la EC2 usando Docker Compose
       # ========================================================
@@ -77,10 +77,10 @@ jobs:
             curl -o docker-compose.yml https://raw.githubusercontent.com/rvelur/APPTransportistasCloud/main/docker-compose.yml
 
             # 4. Descargar la última imagen del backend de DockerHub
-            sudo docker pull robvelasquez/transportistas-api:latest
+            sudo docker pull robvelasquez/transportistas-app:latest
 
             # 5. Levantar la infraestructura completa inyectando las credenciales temporales de AWS
-            export DOCKER_IMAGE=robvelasquez/transportistas-api:latest
+            export DOCKER_IMAGE=robvelasquez/transportistas-app:latest
             export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
             export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             export AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}
