@@ -31,7 +31,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
             .requestMatchers(HttpMethod.DELETE, "/api/guias/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.GET, "/api/guias/buscar").hasRole("ADMIN")
             .requestMatchers(HttpMethod.GET, "/api/guias").hasRole("ADMIN")
-            .requestMatchers(HttpMethod.POST, "api/guias/consumir").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.POST, "/api/guias/consumir").hasRole("ADMIN")
             
             // ==========================================
             // NUEVO ENDPOINT LOCAL DE LA GUÍA DE APRENDIZAJE
