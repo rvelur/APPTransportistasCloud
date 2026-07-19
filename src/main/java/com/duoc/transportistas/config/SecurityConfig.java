@@ -26,17 +26,18 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
             .requestMatchers(HttpMethod.GET, "/api/guias/{id}/descargar").hasRole("DESCARGADOR")
             
             // 2. Rol Admin: Puede hacer todo el resto de las operaciones
-            .requestMatchers(HttpMethod.POST, "/api/guias", "/api/guias/**").permitAll() //hasRole("ADMIN")
+            .requestMatchers(HttpMethod.POST, "/api/guias", "/api/guias/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PUT, "/api/guias/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.DELETE, "/api/guias/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.GET, "/api/guias/buscar").hasRole("ADMIN")
             .requestMatchers(HttpMethod.GET, "/api/guias").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.POST, "api/guias/consumir").hasRole("ADMIN")
             
             // ==========================================
             // NUEVO ENDPOINT LOCAL DE LA GUÍA DE APRENDIZAJE
             // Se permite acceso público para pruebas locales con Postman sin token
             // ==========================================
-            .requestMatchers("/send").permitAll() // <-- Agregado para pruebas locales[cite: 1]
+            .requestMatchers("/send").permitAll() // <-- Agregado para pruebas locales
             .requestMatchers("/actuator/*").permitAll()
             // Cualquier otra ruta requiere estar autenticado
             .anyRequest().authenticated()
