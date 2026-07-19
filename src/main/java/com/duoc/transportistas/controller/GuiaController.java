@@ -52,31 +52,34 @@ public class GuiaController {
     @Autowired
     private ProductorService productorService;
 
-    
-    // 1. Crear guías de despacho (Modificado: Ahora envía los datos a la Cola 1)
+    // 1. Crear guías de despacho
     @PostMapping
-    public ResponseEntity<String> crearGuia(@RequestBody GuiaDespacho guia) {
+    public ResponseEntity<?> crearGuia(@RequestBody GuiaDespacho guia) {
         System.out.println(">>> [CI/CD OK] Procesando la creación de una nueva guía en local...");
-        
+
         guia.setEstado("GENERADA");
         guia.setFechaEmision(LocalDate.now());
-        
+
         // Simulamos un contenido PDF vacío o un string convertido a bytes para la guía
         byte[] pdfFalso = "CONTENIDO_DEL_PDF_DE_LA_GUIA".getBytes();
-        
+
         // Guardado real en la ruta EFS
         String rutaEfs = storageService.guardarTemporalEfs(guia.getNumeroGuia(), pdfFalso);
         guia.setRutaTemporalEfs(rutaEfs);
-        
+
         try {
-            // Enviar la GuiaDespacho directamente como JSON a la Cola 1
-            productorService.enviarGuia(guia);
-            
-            return ResponseEntity.status(HttpStatus.ACCEPTED)
-                    .body("Guía de despacho N° " + guia.getNumeroGuia() + " enviada a la cola 1 con éxito para procesamiento asíncrono.");
+            // Guardamos primero en la tabla guias_despacho para generar el ID en Oracle
+            GuiaDespacho guiaGuardadaInmediata = guiaRepository.save(guia);
+
+            // 2. Enviamos el objeto ya persistido (que incluye el ID autogenerado) a RabbitMQ
+            productorService.enviarGuia(guiaGuardadaInmediata);
+
+            // 3. Retornamos la entidad completa. 
+            return ResponseEntity.status(HttpStatus.CREATED).body(guiaGuardadaInmediata);
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error al enviar la guía a la cola 1: " + e.getMessage());
+                    .body("Error en el proceso de creación: " + e.getMessage());
         }
     }
 
@@ -92,21 +95,21 @@ public class GuiaController {
     @PostMapping("/{id}/subir-s3")
     public ResponseEntity<GuiaDespacho> subirAS3(@PathVariable Long id) {
         Optional<GuiaDespacho> guiaOpt = guiaRepository.findById(id);
-        
+
         if (guiaOpt.isPresent()) {
             GuiaDespacho guia = guiaOpt.get();
-            
+
             // Llamamos al servicio de AWS S3 real
             String urlS3 = storageService.subirAS3(
-                    guia.getRutaTemporalEfs(), 
-                    guia.getTransportista(), 
-                    guia.getFechaEmision(), 
+                    guia.getRutaTemporalEfs(),
+                    guia.getTransportista(),
+                    guia.getFechaEmision(),
                     guia.getNumeroGuia()
             );
-            
+
             guia.setUrlS3(urlS3);
             guia.setEstado("SUBIDA_S3");
-            
+
             GuiaDespacho guiaActualizada = guiaRepository.save(guia);
             return ResponseEntity.ok(guiaActualizada);
         }
@@ -119,7 +122,7 @@ public class GuiaController {
         if (token == null || !token.startsWith("Bearer ")) {
             return new ResponseEntity<>("Acceso denegado: Token inválido o ausente", HttpStatus.FORBIDDEN);
         }
-        
+
         Optional<GuiaDespacho> guiaOpt = guiaRepository.findById(id);
         if (guiaOpt.isPresent()) {
             return ResponseEntity.ok("Descargando archivo físico desde la ruta del volumen EFS: " + guiaOpt.get().getRutaTemporalEfs());
@@ -161,7 +164,7 @@ public class GuiaController {
     public ResponseEntity<List<GuiaDespacho>> consultarGuias(
             @RequestParam String transportista,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-            
+
         List<GuiaDespacho> guias = guiaRepository.findByTransportistaAndFechaEmision(transportista, fecha);
         return ResponseEntity.ok(guias);
     }
